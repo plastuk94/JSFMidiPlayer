@@ -17,6 +17,7 @@ import java.util.List;
 
 import javax.sound.midi.Instrument;
 import javax.sound.midi.InvalidMidiDataException;
+import javax.sound.midi.MetaMessage;
 import javax.sound.midi.MidiDevice;
 import javax.sound.midi.MidiEvent;
 import javax.sound.midi.MidiMessage;
@@ -103,8 +104,9 @@ public class PlayerWindow extends JFrame {
 	ArrayList<IntTriple> bankProgramList;
 
 	boolean isPlaying = false;
-
 	boolean isPaused = false;
+
+	ChannelVisualizer channelVisualizer;
 
 	final DefaultListModel<String> model;
 
@@ -171,7 +173,8 @@ public class PlayerWindow extends JFrame {
 		fileMenu.add(openMenu);
 		menuBar.add(fileMenu);
 		menuBar.add(instrumentMenu);
-
+		
+		// Map out the families of GM instruments and which instruments belong where.
 		HashMap<String, Integer> instrumentFamilies = new HashMap<String, Integer>();
 		instrumentFamilies.put("Piano", 7);
 		instrumentFamilies.put("Chromatic Percussion", 15);
@@ -217,7 +220,6 @@ public class PlayerWindow extends JFrame {
 		instrumentMenu.add(resetAll);
 
 		setJMenuBar(menuBar);
-
 		add(playbackPanel);
 		add(instrumentPanel);
 
@@ -297,9 +299,9 @@ public class PlayerWindow extends JFrame {
 			public void actionPerformed(ActionEvent e) {
 				if (sequencer.isOpen()) {
 					sequencer.stop();
+					playbackSliderWorker.cancel(true);
 				}
 				sequencer.close();
-				playbackSliderWorker.cancel(true);
 			}
 		});
 
@@ -334,6 +336,7 @@ public class PlayerWindow extends JFrame {
 					List<File> fileList = (List<File>) e.getTransferable()
 							.getTransferData(DataFlavor.javaFileListFlavor);
 					File dropFile = fileList.get(0);
+					lastFilePath = dropFile.getAbsolutePath();
 					System.out.println(dropFile.getName());
 					sequence = null;
 					sequence = MidiSystem.getSequence(dropFile);
@@ -462,31 +465,55 @@ public class PlayerWindow extends JFrame {
 
 		trackArr = sequence.getTracks();
 
-		model.removeAllElements(); // Clear instrument list to get rid of override instruments that don't go
-									// away.
+		model.removeAllElements(); // Clear instrument list to get rid of 
+									// unused override instruments.
 
 		for (int i = 0; i < trackArr.length; i++) {
 			for (int k = 0; k < trackArr[i].size(); k++) {
+				long tick = trackArr[i].get(k).getTick();
 				MidiMessage message = trackArr[i].get(k).getMessage();
 				if (message instanceof ShortMessage) {
 					ShortMessage smOld = (ShortMessage) message;
-					if (smOld.getCommand() == (ShortMessage.PROGRAM_CHANGE)) {
+					try {
+						switch (smOld.getCommand()) {
+						case (ShortMessage.PROGRAM_CHANGE): // Instrument change messages
+							int bank = smOld.getData2();
+							int program = smOld.getData1();
+							int channel = smOld.getChannel();
+							IntTriple bankProgram = new IntTriple(bank, program, channel);
+							bankProgramList.add(bankProgram);
+							break;
 
-						int bank = smOld.getData2();
-						int program = smOld.getData1();
-						int channel = smOld.getChannel();
+						case (ShortMessage.CONTROL_CHANGE): // Control change messages
+							if (smOld.getData1() == 7) {    // Control change: Change Volume
+								MetaMessage volumeMeta = new MetaMessage();
+								volumeMeta.setMessage(1, smOld.getMessage(), 3); // Using 1 for volume
+								MidiEvent volumeEvent = new MidiEvent(volumeMeta, tick);
+								trackArr[i].add(volumeEvent);
+							}
+							break;
 
-						IntTriple bankProgram = new IntTriple(bank, program, channel);
-						bankProgramList.add(bankProgram);
+						case (ShortMessage.NOTE_ON): // Note on message
+							MetaMessage noteOnMeta = new MetaMessage();
+							noteOnMeta.setMessage(2, smOld.getMessage(), 3); // Using 2 for note on
+							MidiEvent noteOnEvent = new MidiEvent(noteOnMeta, tick);
+							trackArr[i].add(noteOnEvent);
+							break;
+							
+						case (ShortMessage.NOTE_OFF): // Note off message
+							MetaMessage noteOffMeta = new MetaMessage();
+							noteOffMeta.setMessage(4, smOld.getMessage(), 3); // Using 3 for note off
+							MidiEvent noteOffEvent = new MidiEvent(noteOffMeta, tick);
+							trackArr[i].add(noteOffEvent);
+						}
+					} catch (InvalidMidiDataException e) {
+						e.printStackTrace();
 					}
 				}
 			}
 			try {
-				ShortMessage smNoteOff = new ShortMessage(ShortMessage.NOTE_OFF, 0, 0, 0); // Workaround for
-																							// that stuck
-																							// instrument that
-																							// happens on
-																							// channel 0
+				// Workaround for stuck instrument on channel #0
+				ShortMessage smNoteOff = new ShortMessage(ShortMessage.NOTE_OFF, 0, 0, 0); 
 				trackArr[i].add(new MidiEvent(smNoteOff, 0));
 			} catch (InvalidMidiDataException e1) {
 				e1.printStackTrace();
@@ -545,6 +572,20 @@ public class PlayerWindow extends JFrame {
 			playbackSlider.setMaximum((int) (sequencer.getMicrosecondLength() / 1000000));
 			playbackSliderWorker.execute();
 
+			if (channelVisualizer == null) {
+				channelVisualizer = new ChannelVisualizer();
+				add(channelVisualizer);
+			}
+
+			channelVisualizer.setBorder(BorderFactory.createEtchedBorder());
+			channelVisualizer.setPreferredSize(new Dimension(600, 100));
+			pack();
+
+			channelVisualizer.start();
+			// Tell visualizer thread to listen for the MetaMessages attached to volume
+			// events.
+			sequencer.addMetaEventListener(channelVisualizer.getVisualizerThread());
+
 			if (soundfontFile != null) {
 				instrumentArr = synth.getLoadedInstruments();
 			}
@@ -560,14 +601,19 @@ public class PlayerWindow extends JFrame {
 					String instrumentStr = instrumentArr[i].toString();
 					String[] instrumentStrSplit = instrumentStr.split("#");
 
-					instrumentProgram = Integer.parseInt(instrumentStrSplit[2]);
-					instrumentBank = Integer.parseInt(instrumentStrSplit[1].replace(" preset", "").replace(" ", ""));
+					try {
+						instrumentProgram = Integer.parseInt(instrumentStrSplit[2]);
+						instrumentBank = Integer
+								.parseInt(instrumentStrSplit[1].replace(" preset", "").replace(" ", ""));
+					} catch (ArrayIndexOutOfBoundsException e) { // This only happens to drum kits for some soundfonts.
+						instrumentProgram = 0;
+						instrumentBank = 0;
+						program = 0;
+						bank = 0;
+					}
 
 					if ((bank == instrumentBank) && (program == instrumentProgram)) {
 						String instrumentName = instrumentArr[i].toString();
-						if (instrumentName.contains("Drumkit")) {
-							model.remove(0); // Remove the Piano instruments that are duplicates of the Drumkit
-						}
 
 						if (!model.contains(instrumentName + ", Channel: " + channel)) {
 							model.addElement(instrumentName + ", Channel: " + channel);
@@ -580,5 +626,6 @@ public class PlayerWindow extends JFrame {
 		} catch (Exception e2) {
 			e2.printStackTrace();
 		}
+
 	}
 }
