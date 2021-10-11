@@ -2,6 +2,7 @@ package jsfmidiplayer;
 
 import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 
 import javax.sound.midi.MetaEventListener;
 import javax.sound.midi.MetaMessage;
@@ -16,6 +17,7 @@ import javax.swing.SwingWorker;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
 
 public class ChannelVisualizer extends JPanel {
@@ -26,12 +28,11 @@ public class ChannelVisualizer extends JPanel {
 	private VisualizerThread visualizerThread;
 
 	protected int barWidth;
-	protected int barHeight;
+	protected int barNum = 16;
 
 	protected Boolean gotMessage = false;
 
 	ChannelVisualizer() {
-		//this.sequencer = sequencer;
 	}
 
 	public void start() throws MidiUnavailableException {
@@ -39,9 +40,10 @@ public class ChannelVisualizer extends JPanel {
 		synth = MidiSystem.getSynthesizer();
 		channelArr = synth.getChannels();
 		channelBarList = new ArrayList<ChannelBar>();
-
-		barWidth = ((getWidth() / 16) - 10);
-		barHeight = (getHeight() - 5);
+		if ((barNum == 0) || (barNum > 16)) {
+			barNum = 16;
+		}
+		barWidth = ((getWidth() / barNum) - 10);
 
 		int x = 5;
 		int y = 5;
@@ -57,15 +59,36 @@ public class ChannelVisualizer extends JPanel {
 		visualizerThread.execute();
 	}
 
+	protected int getBarNum() {
+		return barNum;
+	}
+
+	protected void setBarNum(int barNum) {
+		this.barNum = barNum;
+	}
+
 	@Override
 	protected void paintComponent(Graphics g) {
-		super.paintComponent(g);
-		g.setColor(Color.WHITE);
-		g.clearRect(0, 0, 600, 600);
+		Graphics2D g2 = (Graphics2D) g;
+		//super.paintComponent(g2);
+		//g2.setColor(Color.black);
+		g2.clearRect(0, 0, super.getWidth(), super.getHeight());
+		
+		AffineTransform transform = g2.getTransform();
+		
+		transform.rotate(Math.toRadians(180)); // Flip 180 degrees around 0,0 (top left corner)
+		transform.scale(-1, 1); // Flip across X axis
+		transform.translate(0, (-1 * super.getHeight())); // Translate downward to bottom left
+		g2.setTransform(transform);
 
 		for (ChannelBar bar : channelBarList) {
-			g.setColor(Color.GREEN);
-			g.fillRect(bar.getX(), bar.getY(), bar.getWidth(), bar.getHeight());
+			int height = bar.getHeight();
+			g2.setColor(new Color((height * 2), (255 - height), 0 ));
+			g2.fillRect(bar.getX(), bar.getY(), bar.getWidth(), height);
+	
+			if (height > 0) {
+				bar.setHeight(height - 1);
+			}
 		}
 	}
 

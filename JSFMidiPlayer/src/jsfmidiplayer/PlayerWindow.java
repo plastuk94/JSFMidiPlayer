@@ -30,6 +30,7 @@ import javax.sound.midi.Soundbank;
 import javax.sound.midi.Synthesizer;
 import javax.sound.midi.Track;
 import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
@@ -225,7 +226,7 @@ public class PlayerWindow extends JFrame {
 
 		setBounds(200, 200, 800, 600);
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
-		setLayout(new FlowLayout());
+		setLayout(new BoxLayout(getContentPane(), BoxLayout.PAGE_AXIS));
 		setTitle("Midi Player");
 		setVisible(true);
 
@@ -578,17 +579,19 @@ public class PlayerWindow extends JFrame {
 			}
 
 			channelVisualizer.setBorder(BorderFactory.createEtchedBorder());
-			channelVisualizer.setPreferredSize(new Dimension(600, 100));
+			channelVisualizer.setPreferredSize(new Dimension(600, 130));
+
 			pack();
 
-			channelVisualizer.start();
+			
 			// Tell visualizer thread to listen for the MetaMessages attached to volume
 			// events.
-			sequencer.addMetaEventListener(channelVisualizer.getVisualizerThread());
+			
 
 			if (soundfontFile != null) {
 				instrumentArr = synth.getLoadedInstruments();
 			}
+			int numInstruments = 0; // Count number of actual instruments
 
 			for (int i = 0; i < instrumentArr.length; i++) {
 				for (IntTriple intTriple : bankProgramList) {
@@ -618,10 +621,17 @@ public class PlayerWindow extends JFrame {
 						if (!model.contains(instrumentName + ", Channel: " + channel)) {
 							model.addElement(instrumentName + ", Channel: " + channel);
 							System.out.println("Found Match: " + instrumentName + ": Channel: " + channel);
+							if (instrumentName.contains("Instrument:")) {
+								numInstruments++;
+							}
 						}
 					}
 				}
 			}
+			
+			channelVisualizer.setBarNum(numInstruments);
+			channelVisualizer.start();
+			sequencer.addMetaEventListener(channelVisualizer.getVisualizerThread());
 
 		} catch (Exception e2) {
 			e2.printStackTrace();
