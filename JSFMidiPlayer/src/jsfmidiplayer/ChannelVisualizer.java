@@ -40,9 +40,14 @@ public class ChannelVisualizer extends JPanel {
 		synth = MidiSystem.getSynthesizer();
 		channelArr = synth.getChannels();
 		channelBarList = new ArrayList<ChannelBar>();
-		if ((barNum == 0) || (barNum > 16)) {
-			barNum = 16;
+
+		if (barNum < 10) { // Less than 10 bars
+			barNum = 10;   // seems to hide the drum track.
 		}
+		if (barNum > 16) { // Never need more than 16
+			barNum = 16;   // MIDI channels.
+		}
+		
 		barWidth = ((getWidth() / barNum) - 10);
 
 		int x = 5;
@@ -54,7 +59,6 @@ public class ChannelVisualizer extends JPanel {
 			channelBarList.add(bar);
 		}
 
-		// this.repaint();
 		visualizerThread = new VisualizerThread(this);
 		visualizerThread.execute();
 	}
@@ -70,8 +74,6 @@ public class ChannelVisualizer extends JPanel {
 	@Override
 	protected void paintComponent(Graphics g) {
 		Graphics2D g2 = (Graphics2D) g;
-		//super.paintComponent(g2);
-		//g2.setColor(Color.black);
 		g2.clearRect(0, 0, super.getWidth(), super.getHeight());
 		
 		AffineTransform transform = g2.getTransform();
