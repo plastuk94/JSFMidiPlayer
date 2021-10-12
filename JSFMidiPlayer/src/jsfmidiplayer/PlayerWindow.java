@@ -303,6 +303,7 @@ public class PlayerWindow extends JFrame {
 					playbackSliderWorker.cancel(true);
 				}
 				sequencer.close();
+				playButton.setEnabled(true);
 			}
 		});
 
@@ -454,6 +455,7 @@ public class PlayerWindow extends JFrame {
 	public void loadInstruments() {
 
 		isPlaying = true;
+		playButton.setEnabled(false);
 
 		long tickLength = sequence.getTickLength();
 		long msLength = sequence.getMicrosecondLength();
@@ -543,14 +545,15 @@ public class PlayerWindow extends JFrame {
 				sequencer.open();
 				synth.open();
 				Soundbank sbDefault = synth.getDefaultSoundbank();
-				synth.unloadAllInstruments(sbDefault);
+				//synth.unloadAllInstruments(sbDefault);
 				if (sbNew != null) {
 					synth.unloadAllInstruments(sbNew);
 					sbNew = null;
 				}
 				sbNew = MidiSystem.getSoundbank(soundfontFile);
-
+				
 				synth.loadAllInstruments(sbNew);
+				
 
 				sequencer.getTransmitter().setReceiver(synth.getReceiver());
 				sequencer.setSequence(sequence);
