@@ -1,5 +1,6 @@
 package jsfmidiplayer;
 
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.datatransfer.DataFlavor;
@@ -85,8 +86,10 @@ public class PlayerWindow extends JFrame {
 
 		@Override
 		protected Object doInBackground() throws Exception {
+			hasExecutedWorker = true;
 			while (isPlaying) {
 				playbackProgressBar.setValue((int) (sequencer.getMicrosecondPosition() / 1000000));
+				assert(true); // For some reason the thread randomly exits with only the above line.
 			}
 			return null;
 		}
@@ -123,6 +126,7 @@ public class PlayerWindow extends JFrame {
 
 	boolean isPlaying = false;
 	boolean isPaused = false;
+	boolean hasExecutedWorker = false;
 
 	ChannelVisualizer channelVisualizer;
 
@@ -595,22 +599,16 @@ public class PlayerWindow extends JFrame {
 
 			playbackProgressBar.setEnabled(true);
 			playbackProgressBar.setMaximum((int) (sequencer.getMicrosecondLength() / 1000000));
-			playbackProgressBarWorker.execute();
-			playbackProgressBar.addMouseListener(playbackProgressBarWorker.getMouseListener());
-
-			if (channelVisualizer == null) {
-				channelVisualizer = new ChannelVisualizer();
-				add(channelVisualizer);
+			if (!hasExecutedWorker) {
+				playbackProgressBarWorker.execute();
 			}
-
-			channelVisualizer.setBorder(BorderFactory.createEtchedBorder());
-			channelVisualizer.setPreferredSize(new Dimension(600, 130));
-
-			pack();
+			playbackProgressBar.addMouseListener(playbackProgressBarWorker.getMouseListener());
 
 			
 			// Tell visualizer thread to listen for the MetaMessages attached to volume
 			// events.
+			
+			
 			
 
 			if (soundfontFile != null) {
@@ -653,6 +651,16 @@ public class PlayerWindow extends JFrame {
 					}
 				}
 			}
+			
+			if (channelVisualizer == null) {
+				channelVisualizer = new ChannelVisualizer();
+				add(channelVisualizer);
+			}
+
+			channelVisualizer.setBorder(BorderFactory.createEtchedBorder());
+			channelVisualizer.setPreferredSize(new Dimension(600, 130));
+
+			pack();
 			
 			channelVisualizer.setBarNum(numInstruments);
 			channelVisualizer.start();
