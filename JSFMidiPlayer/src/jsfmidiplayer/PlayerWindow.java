@@ -1,7 +1,5 @@
 package jsfmidiplayer;
 
-import java.awt.Color;
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.datatransfer.DataFlavor;
@@ -50,8 +48,6 @@ import javax.swing.JScrollPane;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingWorker;
 import javax.swing.filechooser.FileNameExtensionFilter;
-import javax.swing.plaf.metal.MetalProgressBarUI;
-import javax.swing.plaf.synth.SynthProgressBarUI;
 
 public class PlayerWindow extends JFrame {
 
@@ -100,14 +96,8 @@ public class PlayerWindow extends JFrame {
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				Point clickPoint = e.getPoint();			
-				
 				double percent = (clickPoint.getX() / 144);
-				
-				int newValue = (int) (percent * playbackProgressBar.getMaximum());
-				if (newValue > 255) {
-					newValue = 255;
-				}
-				sequencer.setMicrosecondPosition(newValue * 1000000);
+				sequencer.setMicrosecondPosition((long) (percent * sequencer.getMicrosecondLength()));
 			}
 			@Override
 			public void mousePressed(MouseEvent e) {
@@ -256,7 +246,7 @@ public class PlayerWindow extends JFrame {
 		setBounds(200, 200, 800, 600);
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setLayout(new BoxLayout(getContentPane(), BoxLayout.PAGE_AXIS));
-		setTitle("Midi Player");
+		setTitle("JSFMidiPlayer");
 		setVisible(true);
 
 		playbackPanel.add(playButton);
@@ -320,10 +310,11 @@ public class PlayerWindow extends JFrame {
 			public void actionPerformed(ActionEvent e) {
 				if (sequencer.isOpen()) {
 					sequencer.stop();
-					playbackProgressBarWorker.cancel(true);
+					//playbackProgressBarWorker.cancel(true);
 				}
 				sequencer.close();
 				playButton.setEnabled(true);
+				//isPlaying = false;
 			}
 		});
 
@@ -484,6 +475,7 @@ public class PlayerWindow extends JFrame {
 	public void loadInstruments() {
 
 		isPlaying = true;
+		playbackProgressBar.setValue(0);
 		playButton.setEnabled(false);
 
 		long tickLength = sequence.getTickLength();

@@ -254,7 +254,7 @@ public class ChannelVisualizer extends JPanel {
 			case 2:
 				// Note On message
 				channelNum = (metadata[3] + 112);
-				int pitch = metadata[4];
+				//int pitch = metadata[4];
 				int velocity = metadata[5];
 				channelBarList.get(channelNum).setHeight(velocity);
 				//System.out.println("Note On:");
