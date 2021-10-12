@@ -340,12 +340,21 @@ public class PlayerWindow extends JFrame {
 					File dropFile = fileList.get(0);
 					lastFilePath = dropFile.getAbsolutePath();
 					System.out.println(dropFile.getName());
-					sequence = null;
-					sequence = MidiSystem.getSequence(dropFile);
-					System.out.println("Length in ms: " + sequence.getMicrosecondLength());
-					playButton.setEnabled(true);
-					sequencer = MidiSystem.getSequencer();
-					nowPlaying.setText(dropFile.getName());
+					if (lastFilePath.toLowerCase().matches(".*sf2|.*dls")) {
+						soundfontFile = dropFile;
+						sfName.setText(soundfontFile.getName());
+						if (sequence != null) {
+							playButton.setEnabled(true);
+						}
+					} else {
+						sequence = null;
+						sequence = MidiSystem.getSequence(dropFile);
+						System.out.println("Length in ms: " + sequence.getMicrosecondLength());
+						playButton.setEnabled(true);
+						sequencer = MidiSystem.getSequencer();
+						nowPlaying.setText(dropFile.getName());
+					}
+
 
 				} catch (UnsupportedFlavorException | IOException | InvalidMidiDataException
 						| MidiUnavailableException e1) {
