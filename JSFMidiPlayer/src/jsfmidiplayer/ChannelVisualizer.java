@@ -248,8 +248,8 @@ public class ChannelVisualizer extends JPanel {
 				channelNum = (metadata[3] + 80);
 				int volumeValue = metadata[5];
 				channelBarList.get(channelNum).setHeight(volumeValue);
-				System.out.println("Volume Change:");
-				System.out.println(metadata[1]+","+metadata[2]+","+channelNum+","+metadata[4]+","+metadata[5]);
+				//System.out.println("Volume Change:");
+				//System.out.println(metadata[1]+","+metadata[2]+","+channelNum+","+metadata[4]+","+metadata[5]);
 				break;
 			case 2:
 				// Note On message
@@ -257,14 +257,14 @@ public class ChannelVisualizer extends JPanel {
 				int pitch = metadata[4];
 				int velocity = metadata[5];
 				channelBarList.get(channelNum).setHeight(velocity);
-				System.out.println("Note On:");
-				System.out.println(metadata[1]+","+metadata[2]+","+channelNum+","+metadata[4]+","+metadata[5]);
+				//System.out.println("Note On:");
+				//System.out.println(metadata[1]+","+metadata[2]+","+channelNum+","+metadata[4]+","+metadata[5]);
 
 				break;
 			case 3:
 				// Note Off message
 				//TODO Implement NoteOff handling
-				System.out.println("Note Off:");
+				//System.out.println("Note Off:");
 				break;
 			}
 			

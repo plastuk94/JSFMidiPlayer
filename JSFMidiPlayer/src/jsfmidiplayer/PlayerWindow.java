@@ -1,7 +1,9 @@
 package jsfmidiplayer;
 
+import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
+import java.awt.Point;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.dnd.DnDConstants;
@@ -9,6 +11,8 @@ import java.awt.dnd.DropTarget;
 import java.awt.dnd.DropTargetDropEvent;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -41,13 +45,13 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
-import javax.swing.JSlider;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingWorker;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.plaf.metal.MetalProgressBarUI;
+import javax.swing.plaf.synth.SynthProgressBarUI;
 
 public class PlayerWindow extends JFrame {
 
@@ -81,25 +85,48 @@ public class PlayerWindow extends JFrame {
 		}
 	}
 
-	class PlaybackSliderWorker extends SwingWorker<Object, Object> {
+	class PlaybackProgressBarWorker extends SwingWorker<Object, Object> {
 
 		@Override
 		protected Object doInBackground() throws Exception {
 			while (isPlaying) {
-
-				if (!playbackSlider.getValueIsAdjusting()) {
-					playbackSlider.setValue((int) (sequencer.getMicrosecondPosition() / 1000000));
-					playbackSlider.repaint();
-				}
-
-				if (playbackSlider.getValueIsAdjusting()) {
-					sequencer.setMicrosecondPosition(playbackSlider.getValue() * 1000000);
-					playbackSlider.repaint();
-				}
-
+				playbackProgressBar.setValue((int) (sequencer.getMicrosecondPosition() / 1000000));
 			}
 			return null;
 		}
+		
+		protected MouseListener clickListener = new MouseListener() {
+
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				Point clickPoint = e.getPoint();			
+				
+				double percent = (clickPoint.getX() / 144);
+				
+				int newValue = (int) (percent * playbackProgressBar.getMaximum());
+				if (newValue > 255) {
+					newValue = 255;
+				}
+				sequencer.setMicrosecondPosition(newValue * 1000000);
+			}
+			@Override
+			public void mousePressed(MouseEvent e) {
+			}
+			@Override
+			public void mouseReleased(MouseEvent e) {
+			}
+			@Override
+			public void mouseEntered(MouseEvent e) {
+			}
+			@Override
+			public void mouseExited(MouseEvent e) {
+			}
+		};
+		
+		public MouseListener getMouseListener() {
+			return this.clickListener;
+		}
+			
 	}
 
 	ArrayList<IntTriple> bankProgramList;
@@ -135,11 +162,13 @@ public class PlayerWindow extends JFrame {
 
 	JScrollPane instrumentPane;
 
-	JSlider playbackSlider = new JSlider();
+	//JProgressBar playbackProgressBar = new JProgressBar();
+	
+	JProgressBar playbackProgressBar = new JProgressBar();
 
 	MidiDevice device;
 
-	final PlaybackSliderWorker playbackSliderWorker;
+	final PlaybackProgressBarWorker playbackProgressBarWorker;
 
 	Sequence sequence;
 
@@ -233,26 +262,17 @@ public class PlayerWindow extends JFrame {
 		playbackPanel.add(playButton);
 		playbackPanel.add(pauseButton);
 		playbackPanel.add(stopButton);
-		playbackPanel.add(playbackSlider);
+		playbackPanel.add(playbackProgressBar);
 		playbackPanel.add(nowPlaying);
 		playbackPanel.add(sfName);
 		playbackPanel.setBorder(BorderFactory.createTitledBorder("Playback"));
 		playbackPanel.setPreferredSize(new Dimension(500, 100));
 		playbackPanel.setVisible(true);
 
-		playbackSlider.setEnabled(false);
-		playbackSlider.setValue(0);
-		playbackSlider.setVisible(true);
-		playbackSlider.addChangeListener(new ChangeListener() {
-			public void stateChanged(ChangeEvent e) {
-				if (isPlaying) {
-					//
-				}
-
-			}
-		});
-
-		playbackSliderWorker = new PlaybackSliderWorker();
+		playbackProgressBar.setEnabled(false);
+		playbackProgressBar.setValue(0);
+		playbackProgressBar.setVisible(true);
+		playbackProgressBarWorker = new PlaybackProgressBarWorker();
 		model = new DefaultListModel<String>();
 
 		instrumentList = new JList<String>(model);
@@ -300,7 +320,7 @@ public class PlayerWindow extends JFrame {
 			public void actionPerformed(ActionEvent e) {
 				if (sequencer.isOpen()) {
 					sequencer.stop();
-					playbackSliderWorker.cancel(true);
+					playbackProgressBarWorker.cancel(true);
 				}
 				sequencer.close();
 				playButton.setEnabled(true);
@@ -581,9 +601,10 @@ public class PlayerWindow extends JFrame {
 				System.out.println("BPM: " + sequencer.getTempoInBPM());
 			}
 
-			playbackSlider.setEnabled(true);
-			playbackSlider.setMaximum((int) (sequencer.getMicrosecondLength() / 1000000));
-			playbackSliderWorker.execute();
+			playbackProgressBar.setEnabled(true);
+			playbackProgressBar.setMaximum((int) (sequencer.getMicrosecondLength() / 1000000));
+			playbackProgressBarWorker.execute();
+			playbackProgressBar.addMouseListener(playbackProgressBarWorker.getMouseListener());
 
 			if (channelVisualizer == null) {
 				channelVisualizer = new ChannelVisualizer();
