@@ -1,6 +1,5 @@
 package jsfmidiplayer;
 
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.datatransfer.DataFlavor;
@@ -47,7 +46,6 @@ import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.ListSelectionModel;
-import javax.swing.SwingWorker;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class PlayerWindow extends JFrame {
@@ -81,17 +79,20 @@ public class PlayerWindow extends JFrame {
 			return retVal;
 		}
 	}
-
-	class PlaybackProgressBarWorker extends SwingWorker<Object, Object> {
-
-		@Override
-		protected Object doInBackground() throws Exception {
+	
+	class PlaybackProgressBarWorker extends Thread {
+		PlaybackProgressBarWorker() {	
+		}
+		
+		public void run() {
 			hasExecutedWorker = true;
 			while (isPlaying) {
-				playbackProgressBar.setValue((int) (sequencer.getMicrosecondPosition() / 1000000));
-				assert(true); // For some reason the thread randomly exits with only the above line.
+				try {
+					playbackProgressBar.setValue((int) (sequencer.getMicrosecondPosition() / 1000000));
+				} catch (Exception e) { // For some reason the sequencer is closed briefly between tracks
+					System.out.println("Sequencer not open.");
+				}
 			}
-			return null;
 		}
 		
 		protected MouseListener clickListener = new MouseListener() {
@@ -600,7 +601,7 @@ public class PlayerWindow extends JFrame {
 			playbackProgressBar.setEnabled(true);
 			playbackProgressBar.setMaximum((int) (sequencer.getMicrosecondLength() / 1000000));
 			if (!hasExecutedWorker) {
-				playbackProgressBarWorker.execute();
+				playbackProgressBarWorker.start();
 			}
 			playbackProgressBar.addMouseListener(playbackProgressBarWorker.getMouseListener());
 
