@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Stack;
 
 import javax.sound.midi.Instrument;
 import javax.sound.midi.InvalidMidiDataException;
@@ -61,17 +62,18 @@ public class PlayerWindow extends JFrame {
 			this.z = z;
 		}
 
-		int getX() {
+		public int getX() {
 			return this.x;
 		}
 
-		int getY() {
+		public int getY() {
 			return this.y;
 		}
 
-		int getZ() {
+		public int getZ() {
 			return this.z;
 		}
+		
 
 		@Override
 		public String toString() {
@@ -102,6 +104,7 @@ public class PlayerWindow extends JFrame {
 				Point clickPoint = e.getPoint();			
 				double percent = (clickPoint.getX() / 144);
 				sequencer.setMicrosecondPosition((long) (percent * sequencer.getMicrosecondLength()));
+				assert((1+1) == 3);
 			}
 			@Override
 			public void mousePressed(MouseEvent e) {
@@ -156,8 +159,6 @@ public class PlayerWindow extends JFrame {
 	JPanel instrumentPanel = new JPanel();
 
 	JScrollPane instrumentPane;
-
-	//JProgressBar playbackProgressBar = new JProgressBar();
 	
 	JProgressBar playbackProgressBar = new JProgressBar();
 
@@ -170,6 +171,9 @@ public class PlayerWindow extends JFrame {
 	Sequencer sequencer;
 
 	Soundbank sbNew;
+	
+	Stack<MidiEvent> eventStack = new Stack<MidiEvent>();
+	Stack<Integer>   trackNumStack = new Stack<Integer>();
 
 	String lastFilePath;
 
@@ -251,6 +255,7 @@ public class PlayerWindow extends JFrame {
 		setBounds(200, 200, 800, 600);
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setLayout(new BoxLayout(getContentPane(), BoxLayout.PAGE_AXIS));
+		// Box layout makes this easier to manage into three panels
 		setTitle("JSFMidiPlayer");
 		setVisible(true);
 
@@ -315,11 +320,9 @@ public class PlayerWindow extends JFrame {
 			public void actionPerformed(ActionEvent e) {
 				if (sequencer.isOpen()) {
 					sequencer.stop();
-					//playbackProgressBarWorker.cancel(true);
 				}
 				sequencer.close();
 				playButton.setEnabled(true);
-				//isPlaying = false;
 			}
 		});
 
@@ -427,14 +430,29 @@ public class PlayerWindow extends JFrame {
 
 	public void overrideInstrumentFromList(int overrideInstrument) {
 		List<String> instrumentsToOverride = instrumentList.getSelectedValuesList();
+		if (eventStack.size() > 1) {
+			while (!trackNumStack.isEmpty()) {
+				int trackNum = trackNumStack.pop();
+				System.out.println("Removing events for track "+trackNum);
+				trackArr[trackNum].remove(eventStack.pop()); // Remove tick 0 event
+				trackArr[trackNum].remove(eventStack.pop()); // Remove event that may come later.
+			}
+		}
 		for (String instrumentToOverride : instrumentsToOverride) {
 			System.out.println("You chose to override " + instrumentToOverride + " with " + overrideInstrument);
 			int channelToOverride = Integer.parseInt(instrumentToOverride.split("Channel: ")[1]);
 			ShortMessage smNew = new ShortMessage();
 			try {
 				smNew.setMessage(ShortMessage.PROGRAM_CHANGE, channelToOverride, overrideInstrument, 0);
-				for (Track track : trackArr) {
-					track.add(new MidiEvent(smNew, 0));
+				for (int i = 0; i < trackArr.length; i++) {
+					long position = sequencer.getTickPosition();
+					MidiEvent beginningEvent = new MidiEvent(smNew, 0);
+					MidiEvent nowEvent = new MidiEvent(smNew, position);
+					trackArr[i].add(beginningEvent);
+					trackArr[i].add(nowEvent);
+					eventStack.add(beginningEvent); // Place the tick 0
+					eventStack.add(nowEvent);       // and future events in a stack.
+					trackNumStack.add(i);
 					for (int instrument : instrumentList.getSelectedIndices()) {
 						String currentInstrument = model.getElementAt(instrument);
 						int currentChannel = Integer.parseInt(currentInstrument.split("Channel: ")[1]);
@@ -449,14 +467,17 @@ public class PlayerWindow extends JFrame {
 			}
 		}
 		sequencer.setMicrosecondPosition(sequencer.getMicrosecondPosition()); // Somehow setting the position
-																				// forces the instrument change
+																			  // forces the instrument change.
 	}
 
 	public void resetAllInstruments() {
+		trackNumStack = new Stack<Integer>();
+		eventStack = new Stack<MidiEvent>();
+		
 		long currentPosition = sequencer.getMicrosecondPosition();
 		if (true) {
 			File openFile = new File(lastFilePath); // Reload the original file as if we
-			playButton.setEnabled(true); // opened another one.
+			playButton.setEnabled(true);            // opened another one.
 			if (sequencer != null) {
 				if (sequencer.isOpen()) {
 					sequencer.stop();
@@ -496,11 +517,14 @@ public class PlayerWindow extends JFrame {
 
 		model.removeAllElements(); // Clear instrument list to get rid of 
 									// unused override instruments.
+		
+		Boolean duplicate = false;
 
 		for (int i = 0; i < trackArr.length; i++) {
 			for (int k = 0; k < trackArr[i].size(); k++) {
 				long tick = trackArr[i].get(k).getTick();
 				MidiMessage message = trackArr[i].get(k).getMessage();
+				IntTriple bankProgram;
 				if (message instanceof ShortMessage) {
 					ShortMessage smOld = (ShortMessage) message;
 					try {
@@ -509,8 +533,28 @@ public class PlayerWindow extends JFrame {
 							int bank = smOld.getData2();
 							int program = smOld.getData1();
 							int channel = smOld.getChannel();
-							IntTriple bankProgram = new IntTriple(bank, program, channel);
-							bankProgramList.add(bankProgram);
+							bankProgram = new IntTriple(bank, program, channel);
+							for (IntTriple triple : bankProgramList) {
+								if ((bankProgram.getX() == triple.getX())
+										&& (bankProgram.getY() == triple.getY())
+										&& (bankProgram.getZ() == triple.getZ()))  {
+									duplicate = true;
+									// Get rid of duplicate program changes.
+								}
+							}
+							
+							if (tick > 0) {
+								trackArr[i].remove(trackArr[i].get(k));
+								// Remove program changes that come after
+								// the start tick.
+							}
+							
+						    if (duplicate) {
+								trackArr[i].remove(trackArr[i].get(k));
+								duplicate = false;;
+							} else {
+								bankProgramList.add(bankProgram);
+							}
 							break;
 
 						case (ShortMessage.CONTROL_CHANGE): // Control change messages
@@ -570,8 +614,6 @@ public class PlayerWindow extends JFrame {
 				sequencer.setLoopCount(Sequencer.LOOP_CONTINUOUSLY);
 				sequencer.open();
 				synth.open();
-				Soundbank sbDefault = synth.getDefaultSoundbank();
-				//synth.unloadAllInstruments(sbDefault);
 				if (sbNew != null) {
 					synth.unloadAllInstruments(sbNew);
 					sbNew = null;
@@ -608,8 +650,6 @@ public class PlayerWindow extends JFrame {
 			
 			// Tell visualizer thread to listen for the MetaMessages attached to volume
 			// events.
-			
-			
 			
 
 			if (soundfontFile != null) {

@@ -162,6 +162,7 @@ public class ChannelVisualizer extends JPanel {
 		}
 	}
 
+	// Future idea
 	private class ChannelBarButton extends JButton {
 		protected boolean active = false;
 		public static final int MUTE = 0;
