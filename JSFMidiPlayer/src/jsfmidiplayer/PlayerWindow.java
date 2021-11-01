@@ -434,8 +434,12 @@ public class PlayerWindow extends JFrame {
 			while (!trackNumStack.isEmpty()) {
 				int trackNum = trackNumStack.pop();
 				System.out.println("Removing events for track "+trackNum);
-				trackArr[trackNum].remove(eventStack.pop()); // Remove tick 0 event
-				trackArr[trackNum].remove(eventStack.pop()); // Remove event that may come later.
+				try {
+					trackArr[trackNum].remove(eventStack.pop()); // Remove tick 0 event
+					trackArr[trackNum].remove(eventStack.pop()); // Remove event that may come later.
+				} catch (Exception e) { // Rarely throws out of bounds exception, not sure why
+					e.printStackTrace();
+				}
 			}
 		}
 		for (String instrumentToOverride : instrumentsToOverride) {
