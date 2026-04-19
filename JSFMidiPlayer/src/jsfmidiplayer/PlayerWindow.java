@@ -73,7 +73,6 @@ public class PlayerWindow extends JFrame {
 		public int getZ() {
 			return this.z;
 		}
-		
 
 		@Override
 		public String toString() {
@@ -81,11 +80,11 @@ public class PlayerWindow extends JFrame {
 			return retVal;
 		}
 	}
-	
+
 	class PlaybackProgressBarWorker extends Thread {
-		PlaybackProgressBarWorker() {	
+		PlaybackProgressBarWorker() {
 		}
-		
+
 		public void run() {
 			hasExecutedWorker = true;
 			while (isPlaying) {
@@ -96,34 +95,38 @@ public class PlayerWindow extends JFrame {
 				}
 			}
 		}
-		
+
 		protected MouseListener clickListener = new MouseListener() {
 
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				Point clickPoint = e.getPoint();			
+				Point clickPoint = e.getPoint();
 				double percent = (clickPoint.getX() / 144);
 				sequencer.setMicrosecondPosition((long) (percent * sequencer.getMicrosecondLength()));
-				assert((1+1) == 3);
+				assert ((1 + 1) == 3);
 			}
+
 			@Override
 			public void mousePressed(MouseEvent e) {
 			}
+
 			@Override
 			public void mouseReleased(MouseEvent e) {
 			}
+
 			@Override
 			public void mouseEntered(MouseEvent e) {
 			}
+
 			@Override
 			public void mouseExited(MouseEvent e) {
 			}
 		};
-		
+
 		public MouseListener getMouseListener() {
 			return this.clickListener;
 		}
-			
+
 	}
 
 	ArrayList<IntTriple> bankProgramList;
@@ -131,8 +134,6 @@ public class PlayerWindow extends JFrame {
 	boolean isPlaying = false;
 	boolean isPaused = false;
 	boolean hasExecutedWorker = false;
-
-	ChannelVisualizer channelVisualizer;
 
 	final DefaultListModel<String> model;
 
@@ -159,7 +160,7 @@ public class PlayerWindow extends JFrame {
 	JPanel instrumentPanel = new JPanel();
 
 	JScrollPane instrumentPane;
-	
+
 	JProgressBar playbackProgressBar = new JProgressBar();
 
 	MidiDevice device;
@@ -171,9 +172,9 @@ public class PlayerWindow extends JFrame {
 	Sequencer sequencer;
 
 	Soundbank sbNew;
-	
+
 	Stack<MidiEvent> eventStack = new Stack<MidiEvent>();
-	Stack<Integer>   trackNumStack = new Stack<Integer>();
+	Stack<Integer> trackNumStack = new Stack<Integer>();
 
 	String lastFilePath;
 
@@ -202,7 +203,7 @@ public class PlayerWindow extends JFrame {
 		fileMenu.add(openMenu);
 		menuBar.add(fileMenu);
 		menuBar.add(instrumentMenu);
-		
+
 		// Map out the families of GM instruments and which instruments belong where.
 		HashMap<String, Integer> instrumentFamilies = new HashMap<String, Integer>();
 		instrumentFamilies.put("Piano", 7);
@@ -374,7 +375,6 @@ public class PlayerWindow extends JFrame {
 						nowPlaying.setText(dropFile.getName());
 					}
 
-
 				} catch (UnsupportedFlavorException | IOException | InvalidMidiDataException
 						| MidiUnavailableException e1) {
 					e1.printStackTrace();
@@ -433,7 +433,7 @@ public class PlayerWindow extends JFrame {
 		if (eventStack.size() > 1) {
 			while (!trackNumStack.isEmpty()) {
 				int trackNum = trackNumStack.pop();
-				System.out.println("Removing events for track "+trackNum);
+				System.out.println("Removing events for track " + trackNum);
 				try {
 					trackArr[trackNum].remove(eventStack.pop()); // Remove tick 0 event
 					trackArr[trackNum].remove(eventStack.pop()); // Remove event that may come later.
@@ -455,7 +455,7 @@ public class PlayerWindow extends JFrame {
 					trackArr[i].add(beginningEvent);
 					trackArr[i].add(nowEvent);
 					eventStack.add(beginningEvent); // Place the tick 0
-					eventStack.add(nowEvent);       // and future events in a stack.
+					eventStack.add(nowEvent); // and future events in a stack.
 					trackNumStack.add(i);
 					for (int instrument : instrumentList.getSelectedIndices()) {
 						String currentInstrument = model.getElementAt(instrument);
@@ -471,17 +471,17 @@ public class PlayerWindow extends JFrame {
 			}
 		}
 		sequencer.setMicrosecondPosition(sequencer.getMicrosecondPosition()); // Somehow setting the position
-																			  // forces the instrument change.
+																				// forces the instrument change.
 	}
 
 	public void resetAllInstruments() {
 		trackNumStack = new Stack<Integer>();
 		eventStack = new Stack<MidiEvent>();
-		
+
 		long currentPosition = sequencer.getMicrosecondPosition();
 		if (true) {
 			File openFile = new File(lastFilePath); // Reload the original file as if we
-			playButton.setEnabled(true);            // opened another one.
+			playButton.setEnabled(true); // opened another one.
 			if (sequencer != null) {
 				if (sequencer.isOpen()) {
 					sequencer.stop();
@@ -519,9 +519,9 @@ public class PlayerWindow extends JFrame {
 
 		trackArr = sequence.getTracks();
 
-		model.removeAllElements(); // Clear instrument list to get rid of 
+		model.removeAllElements(); // Clear instrument list to get rid of
 									// unused override instruments.
-		
+
 		Boolean duplicate = false;
 
 		for (int i = 0; i < trackArr.length; i++) {
@@ -539,30 +539,30 @@ public class PlayerWindow extends JFrame {
 							int channel = smOld.getChannel();
 							bankProgram = new IntTriple(bank, program, channel);
 							for (IntTriple triple : bankProgramList) {
-								if ((bankProgram.getX() == triple.getX())
-										&& (bankProgram.getY() == triple.getY())
-										&& (bankProgram.getZ() == triple.getZ()))  {
+								if ((bankProgram.getX() == triple.getX()) && (bankProgram.getY() == triple.getY())
+										&& (bankProgram.getZ() == triple.getZ())) {
 									duplicate = true;
 									// Get rid of duplicate program changes.
 								}
 							}
-							
+
 							if (tick > 0) {
 								trackArr[i].remove(trackArr[i].get(k));
 								// Remove program changes that come after
 								// the start tick.
 							}
-							
-						    if (duplicate) {
+
+							if (duplicate) {
 								trackArr[i].remove(trackArr[i].get(k));
-								duplicate = false;;
+								duplicate = false;
+								;
 							} else {
 								bankProgramList.add(bankProgram);
 							}
 							break;
 
 						case (ShortMessage.CONTROL_CHANGE): // Control change messages
-							if (smOld.getData1() == 7) {    // Control change: Change Volume
+							if (smOld.getData1() == 7) { // Control change: Change Volume
 								MetaMessage volumeMeta = new MetaMessage();
 								volumeMeta.setMessage(1, smOld.getMessage(), 3); // Using 1 for volume
 								MidiEvent volumeEvent = new MidiEvent(volumeMeta, tick);
@@ -576,7 +576,7 @@ public class PlayerWindow extends JFrame {
 							MidiEvent noteOnEvent = new MidiEvent(noteOnMeta, tick);
 							trackArr[i].add(noteOnEvent);
 							break;
-							
+
 						case (ShortMessage.NOTE_OFF): // Note off message
 							MetaMessage noteOffMeta = new MetaMessage();
 							noteOffMeta.setMessage(4, smOld.getMessage(), 3); // Using 3 for note off
@@ -590,7 +590,7 @@ public class PlayerWindow extends JFrame {
 			}
 			try {
 				// Workaround for stuck instrument on channel #0
-				ShortMessage smNoteOff = new ShortMessage(ShortMessage.NOTE_OFF, 0, 0, 0); 
+				ShortMessage smNoteOff = new ShortMessage(ShortMessage.NOTE_OFF, 0, 0, 0);
 				trackArr[i].add(new MidiEvent(smNoteOff, 0));
 			} catch (InvalidMidiDataException e1) {
 				e1.printStackTrace();
@@ -623,9 +623,8 @@ public class PlayerWindow extends JFrame {
 					sbNew = null;
 				}
 				sbNew = MidiSystem.getSoundbank(soundfontFile);
-				
+
 				synth.loadAllInstruments(sbNew);
-				
 
 				sequencer.getTransmitter().setReceiver(synth.getReceiver());
 				sequencer.setSequence(sequence);
@@ -651,10 +650,8 @@ public class PlayerWindow extends JFrame {
 			}
 			playbackProgressBar.addMouseListener(playbackProgressBarWorker.getMouseListener());
 
-			
 			// Tell visualizer thread to listen for the MetaMessages attached to volume
 			// events.
-			
 
 			if (soundfontFile != null) {
 				instrumentArr = synth.getLoadedInstruments();
@@ -696,20 +693,8 @@ public class PlayerWindow extends JFrame {
 					}
 				}
 			}
-			
-			if (channelVisualizer == null) {
-				channelVisualizer = new ChannelVisualizer();
-				add(channelVisualizer);
-			}
-
-			channelVisualizer.setBorder(BorderFactory.createEtchedBorder());
-			channelVisualizer.setPreferredSize(new Dimension(600, 130));
 
 			pack();
-			
-			channelVisualizer.setBarNum(numInstruments);
-			channelVisualizer.start();
-			sequencer.addMetaEventListener(channelVisualizer.getVisualizerThread());
 
 		} catch (Exception e2) {
 			e2.printStackTrace();
